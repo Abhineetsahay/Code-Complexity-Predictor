@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Complexity Predictor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .complexity-badge {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .complexity-constant {
+            background: #28a745;
+            color: white;
+        }
+
+        .complexity-linear {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .complexity-quadratic {
+            background: #fd7e14;
+            color: white;
+        }
+
+        .complexity-cubic {
+            background: #dc3545;
+            color: white;
+        }
+
+        .probabilities {
+            margin-top: 15px;
+        }
+
+        .prob-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .prob-bar {
+            flex: 1;
+            height: 25px;
+            background: #e9ecef;
+            border-radius: 5px;
+            margin: 0 10px;
+            overflow: hidden;
+        }
+
+        .prob-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loader.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Code Complexity Predictor</h1>
+        <p class="subtitle">Predict the time complexity of your code</p>
+
+        <div class="input-section">
+            <label for="codeInput">Enter your code:</label>
+            <textarea id="codeInput" placeholder="Paste your code here..."></textarea>
+        </div>
+
+        <button onclick="predictComplexity()">Analyze Complexity</button>
+
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <p>Analyzing code...</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result" id="result">
+            <h2>Prediction Result</h2>
+            <div id="complexityResult"></div>
+            <div class="probabilities">
+                <h3>Confidence Scores:</h3>
+                <div id="probabilities"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function predictComplexity() {
+            const code = document.getElementById('codeInput').value.trim();
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+            const loader = document.getElementById('loader');
+
+            resultDiv.classList.remove('show');
+            errorDiv.classList.remove('show');
+
+            if (!code) {
+                errorDiv.textContent = 'Please enter some code to analyze.';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            loader.classList.add('show');
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: code })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayResult(data);
+                } else {
+                    throw new Error(data.error || 'Prediction failed');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error: ' + error.message;
+                errorDiv.classList.add('show');
+            } finally {
+                loader.classList.remove('show');
+            }
+        }
+
+        function displayResult(data) {
+            const complexity = data.complexity;
+            const probabilities = data.probabilities;
+
+            const complexityClass = `complexity-${complexity.toLowerCase()}`;
+            document.getElementById('complexityResult').innerHTML = `
+                <span class="complexity-badge ${complexityClass}">
+                    ${complexity.toUpperCase()}
+                </span>
+            `;
+
+            let probHtml = '';
+            for (const [cls, prob] of Object.entries(probabilities)) {
+                const percentage = (prob * 100).toFixed(1);
+                probHtml += `
+                    <div class="prob-item">
+                        <span style="min-width: 100px;">${cls}:</span>
+                        <div class="prob-bar">
+                            <div class="prob-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <span style="min-width: 60px; text-align: right;">${percentage}%</span>
+                    </div>
+                `;
+            }
+            document.getElementById('probabilities').innerHTML = probHtml;
+
+            document.getElementById('result').classList.add('show');
+        }
+    </script>
+</body>
+</html>
